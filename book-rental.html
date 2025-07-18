@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดการร้านหนังสือเช่า</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Choices.js CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"/>
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+        }
+        .tab-button.active {
+            border-color: #3b82f6;
+            background-color: #3b82f6;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .modal {
+            display: none;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .animate-pulse-fast {
+            animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+          50% {
+            opacity: .5;
+          }
+        }
+        /* Styling for Choices.js */
+        .choices__inner {
+            background-color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid #d1d5db;
+        }
+        .choices__input {
+             background-color: transparent !important;
+        }
+        .choices[data-type*="select-one"]::after {
+            right: 11.5px;
+        }
+        /* Loading Overlay */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .payment-method-btn.active {
+            background-color: #3b82f6;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay">
+        <div id="loading-spinner" class="text-center">
+            <i class="fas fa-spinner fa-spin fa-3x text-blue-500"></i>
+            <p class="text-lg font-semibold text-gray-700 mt-4">กำลังโหลดข้อมูล...</p>
+        </div>
+        <div id="loading-error" class="hidden text-center p-4">
+            <i class="fas fa-exclamation-triangle fa-3x text-red-500"></i>
+            <p class="text-xl font-bold text-red-700 mt-4">เกิดข้อผิดพลาด!</p>
+            <p id="error-message" class="text-gray-600 mt-2 max-w-md"></p>
+            <button onclick="loadInitialData()" class="mt-6 bg-blue-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-600 transition">
+                <i class="fas fa-redo-alt mr-2"></i>ลองอีกครั้ง
+            </button>
+        </div>
+    </div>
+
+    <div class="container mx-auto p-4 md:p-6">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl md:text-4xl font-bold text-blue-600">📚 ระบบจัดการร้านหนังสือเช่า</h1>
+            <p class="text-gray-600 mt-2">จัดการหนังสือ, สมาชิก, การยืม-คืน, และติดตามหนังสือค้างส่งในที่เดียว</p>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <div class="mb-6 border-b border-gray-200">
+            <nav class="flex flex-wrap -mb-px" aria-label="Tabs">
+                <button onclick="changeTab('dashboard')" class="tab-button active text-lg font-semibold p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" data-tab="dashboard">
+                    <i class="fas fa-tachometer-alt mr-2"></i>แดชบอร์ด
+                </button>
+                <button onclick="changeTab('rentals')" class="tab-button text-lg font-semibold p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" data-tab="rentals">
+                    <i class="fas fa-exchange-alt mr-2"></i>บันทึกการยืม-คืน
+                </button>
+                <button onclick="changeTab('books')" class="tab-button text-lg font-semibold p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" data-tab="books">
+                    <i class="fas fa-book mr-2"></i>รายการหนังสือ
+                </button>
+                 <button onclick="changeTab('members')" class="tab-button text-lg font-semibold p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" data-tab="members">
+                    <i class="fas fa-users mr-2"></i>จัดการสมาชิก
+                </button>
+                <button onclick="changeTab('reports')" class="tab-button text-lg font-semibold p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300" data-tab="reports">
+                    <i class="fas fa-chart-line mr-2"></i>รายงาน
+                </button>
+            </nav>
+        </div>
+
+        <!-- Tab Content -->
+        <main>
+            <!-- Dashboard Tab -->
+            <div id="dashboard-content" class="tab-content active space-y-8">
+                <section class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-red-500">
+                    <h2 class="text-2xl font-bold text-red-600 mb-4 flex items-center">
+                        <i class="fas fa-exclamation-triangle mr-3 animate-pulse-fast"></i>แจ้งเตือน: หนังสือค้างส่งเกินกำหนด
+                    </h2>
+                    <div id="overdue-list" class="overflow-x-auto"></div>
+                </section>
+
+                <section class="bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-700 mb-4"><i class="fas fa-history mr-2"></i>ค้นหาประวัติการยืมรายคน</h2>
+                    <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
+                        <div class="flex-grow"><select id="search-member-select"></select></div>
+                        <button onclick="searchHistory()" class="bg-blue-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-600 transition duration-300">
+                            <i class="fas fa-search mr-2"></i>ค้นหา
+                        </button>
+                    </div>
+                    <div id="history-results" class="overflow-x-auto"></div>
+                    <div id="history-actions" class="mt-4 text-right" style="display: none;">
+                        <button onclick="handleReturnSelected('history-results-table')" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700 transition">
+                            <i class="fas fa-undo-alt mr-2"></i>คืนหนังสือที่เลือก
+                        </button>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Rentals Tab -->
+            <div id="rentals-content" class="tab-content space-y-8">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <section class="bg-white p-6 rounded-xl shadow-lg">
+                        <h2 class="text-2xl font-bold text-gray-700 mb-4"><i class="fas fa-shopping-cart mr-2 text-green-500"></i>สร้างรายการยืม</h2>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block mb-2 font-medium text-gray-700">เลือกสมาชิกผู้ยืม (เฉพาะสมาชิกที่ยังไม่หมดอายุ)</label>
+                                <select id="borrow-member-select"></select>
+                            </div>
+                            <div>
+                                <label class="block mb-2 font-medium text-gray-700">เลือกหนังสือ (เฉพาะเล่มที่ว่าง)</label>
+                                <div class="flex gap-2">
+                                    <div class="w-full"><select id="add-to-cart-select"></select></div>
+                                    <button onclick="addToCart()" class="bg-green-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-600 transition"><i class="fas fa-plus"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="bg-white p-6 rounded-xl shadow-lg">
+                        <h2 class="text-2xl font-bold text-gray-700 mb-4"><i class="fas fa-receipt mr-2"></i>ตะกร้าการยืม</h2>
+                        <div id="rental-cart-container" class="mb-4"></div>
+                        <div class="text-right">
+                             <button onclick="confirmRental()" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400" id="confirm-rental-btn" disabled>
+                                <i class="fas fa-check-double mr-2"></i>ยืนยันการยืมทั้งหมด
+                            </button>
+                        </div>
+                    </section>
+                </div>
+                 <section class="bg-white p-6 rounded-xl shadow-lg">
+                    <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
+                        <h2 class="text-2xl font-bold text-gray-700"><i class="fas fa-stream mr-2"></i>รายการที่กำลังถูกยืมอยู่</h2>
+                        <div class="flex gap-2 w-full sm:w-auto">
+                            <input type="date" id="search-rented-date" onchange="filterCurrentlyRentedTable()" class="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <input type="text" id="search-rented-input" onkeyup="filterCurrentlyRentedTable()" placeholder="ค้นหา (ชื่อ, หนังสือ)..." class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                     <div id="currently-rented-list" class="overflow-x-auto"></div>
+                     <div id="currently-rented-actions" class="mt-4 text-right" style="display: none;">
+                        <button onclick="handleReturnSelected('currently-rented-table')" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700 transition">
+                            <i class="fas fa-undo-alt mr-2"></i>คืนหนังสือที่เลือก
+                        </button>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Books Tab -->
+            <div id="books-content" class="tab-content space-y-8">
+                <section class="bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-700 mb-4"><i class="fas fa-book-medical mr-2 text-blue-500"></i>เพิ่มหนังสือใหม่</h2>
+                     <form id="add-book-form" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                        <div>
+                            <label class="block mb-2 font-medium text-gray-700">รหัสหนังสือ</label>
+                            <input type="text" id="book-id-display" disabled class="w-full p-3 border bg-gray-200 rounded-lg">
+                        </div>
+                        <div>
+                            <label for="book-title" class="block mb-2 font-medium text-gray-700">ชื่อหนังสือ</label>
+                            <input type="text" id="book-title" placeholder="ชื่อหนังสือ" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                         <div>
+                            <label for="book-price" class="block mb-2 font-medium text-gray-700">ราคายืม (บาท)</label>
+                            <input type="number" id="book-price" placeholder="เช่น 20" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0">
+                        </div>
+                        <button type="submit" class="w-full md:w-auto bg-blue-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-600 transition duration-300">
+                            <i class="fas fa-plus mr-2"></i>เพิ่มหนังสือ
+                        </button>
+                    </form>
+                </section>
+                <section class="bg-white p-6 rounded-xl shadow-lg">
+                    <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
+                        <h2 class="text-2xl font-bold text-gray-700"><i class="fas fa-list-ul mr-2"></i>คลังหนังสือทั้งหมด</h2>
+                        <div class="w-full sm:w-1/3">
+                            <input type="text" id="search-book-input" onkeyup="filterTable('search-book-input', 'book-list-main-table', [0, 1])" placeholder="ค้นหาหนังสือ (รหัส, ชื่อ)..." class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <div id="book-list-table" class="overflow-x-auto"></div>
+                </section>
+            </div>
+            
+            <!-- Members Tab -->
+            <div id="members-content" class="tab-content space-y-8">
+                <section class="bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-700 mb-4"><i class="fas fa-user-plus mr-2 text-green-500"></i>เพิ่มสมาชิกใหม่</h2>
+                     <form id="add-member-form" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                        <div>
+                            <label for="member-name" class="block mb-2 font-medium text-gray-700">ชื่อ-สกุล</label>
+                            <input type="text" id="member-name" placeholder="ชื่อ-สกุล สมาชิก" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label for="member-contact" class="block mb-2 font-medium text-gray-700">ข้อมูลติดต่อ</label>
+                            <input type="text" id="member-contact" placeholder="เบอร์โทรศัพท์ หรือ อีเมล" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label for="member-reg-date" class="block mb-2 font-medium text-gray-700">วันที่สมัคร</label>
+                            <input type="date" id="member-reg-date" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <button type="submit" class="w-full md:w-auto bg-green-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-600 transition duration-300">
+                            <i class="fas fa-plus mr-2"></i>เพิ่มสมาชิก
+                        </button>
+                    </form>
+                </section>
+                <section class="bg-white p-6 rounded-xl shadow-lg">
+                    <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
+                        <h2 class="text-2xl font-bold text-gray-700"><i class="fas fa-users mr-2"></i>รายชื่อสมาชิกทั้งหมด</h2>
+                        <div class="w-full sm:w-1/3">
+                            <input type="text" id="search-member-list-input" onkeyup="filterTable('search-member-list-input', 'member-list-main-table', [0, 1, 2])" placeholder="ค้นหาสมาชิก (รหัส, ชื่อ, ติดต่อ)..." class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <div id="member-list-table" class="overflow-x-auto"></div>
+                </section>
+            </div>
+
+            <!-- Reports Tab -->
+            <div id="reports-content" class="tab-content space-y-8">
+                <section class="bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-700 mb-4"><i class="fas fa-coins mr-2 text-yellow-500"></i>รายงานรายรับ</h2>
+                    <div id="income-report-table" class="overflow-x-auto"></div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-lg shadow-2xl max-w-sm w-full text-center">
+            <h3 id="modal-title" class="text-xl font-bold mb-4">ยืนยันการกระทำ</h3>
+            <p id="modal-body" class="mb-6 text-gray-600">คุณแน่ใจหรือไม่?</p>
+            <div class="flex justify-center gap-4">
+                <button id="modal-confirm-btn" class="bg-green-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-600">ยืนยัน</button>
+                <button id="modal-cancel-btn" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-400">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Book Modal -->
+    <div id="edit-book-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-lg shadow-2xl max-w-md w-full">
+            <h3 class="text-xl font-bold mb-6">แก้ไขข้อมูลหนังสือ</h3>
+            <form id="edit-book-form" class="space-y-4">
+                <input type="hidden" id="edit-book-id">
+                <div>
+                    <label for="edit-book-title" class="block mb-2 font-medium text-gray-700">ชื่อหนังสือ</label>
+                    <input type="text" id="edit-book-title" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="edit-book-price" class="block mb-2 font-medium text-gray-700">ราคายืม (บาท)</label>
+                    <input type="number" id="edit-book-price" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0">
+                </div>
+                <div class="flex justify-end gap-4 pt-4">
+                    <button type="button" onclick="hideEditBookModal()" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-400">ยกเลิก</button>
+                    <button type="submit" class="bg-blue-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-600">บันทึก</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Member Modal -->
+     <div id="edit-member-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-lg shadow-2xl max-w-md w-full">
+            <h3 class="text-xl font-bold mb-6">แก้ไขข้อมูลสมาชิก</h3>
+            <form id="edit-member-form" class="space-y-4">
+                <input type="hidden" id="edit-member-id">
+                <div>
+                    <label for="edit-member-name" class="block mb-2 font-medium text-gray-700">ชื่อ-สกุล</label>
+                    <input type="text" id="edit-member-name" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="edit-member-contact" class="block mb-2 font-medium text-gray-700">ข้อมูลติดต่อ</label>
+                    <input type="text" id="edit-member-contact" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="flex justify-end gap-4 pt-4">
+                    <button type="button" onclick="hideEditMemberModal()" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-400">ยกเลิก</button>
+                    <button type="submit" class="bg-blue-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-600">บันทึก</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="payment-modal" class="modal fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-lg shadow-2xl max-w-lg w-full">
+            <h3 class="text-2xl font-bold mb-4">ยืนยันการชำระเงิน</h3>
+            <div class="mb-4 text-center">
+                <p class="text-gray-600">ยอดชำระทั้งหมด</p>
+                <p id="payment-total-amount" class="text-4xl font-bold text-blue-600">0.00 บาท</p>
+            </div>
+            
+            <div class="mb-6 flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-50">
+                <button id="payment-method-cash-btn" onclick="switchPaymentMethod('cash')" class="payment-method-btn active w-1/2 p-2 rounded-md font-semibold transition-colors duration-300">
+                    <i class="fas fa-money-bill-wave mr-2"></i>เงินสด
+                </button>
+                <button id="payment-method-qr-btn" onclick="switchPaymentMethod('qr')" class="payment-method-btn w-1/2 p-2 rounded-md font-semibold transition-colors duration-300">
+                    <i class="fas fa-qrcode mr-2"></i>QR Code
+                </button>
+            </div>
+
+            <div id="cash-payment-section" class="space-y-4">
+                <div>
+                    <label for="cash-received-input" class="block mb-2 font-medium text-gray-700">จำนวนเงินที่รับมา</label>
+                    <input type="number" id="cash-received-input" oninput="calculateChange()" placeholder="0.00" class="w-full text-center text-2xl p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" min="0">
+                </div>
+                <div class="text-center">
+                    <p class="text-gray-600">เงินทอน</p>
+                    <p id="cash-change-display" class="text-3xl font-bold text-green-600">0.00 บาท</p>
+                </div>
+            </div>
+
+            <div id="qr-payment-section" class="hidden text-center">
+                <p class="mb-2 text-gray-700">สแกน QR Code เพื่อชำระเงิน</p>
+                <img src="https://i.postimg.cc/kM0sNkyz/IMG-4-B64-DD8-D3-DA7-1.jpg" alt="QR Code" class="mx-auto rounded-lg max-w-xs border">
+            </div>
+
+            <div class="flex justify-end gap-4 pt-6 mt-6 border-t">
+                <button type="button" onclick="hidePaymentModal()" class="bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-lg hover:bg-gray-400">ยกเลิก</button>
+                <button id="final-confirm-btn" type="button" onclick="handleFinalConfirmation()" class="bg-green-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-600 disabled:bg-gray-400">
+                    <i class="fas fa-check-circle mr-2"></i>ยืนยันการชำระเงิน
+                </button>
+            </div>
+        </div>
+    </div>
+
+<!-- Choices.js -->
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+<script>
+    // =================================================================
+    // --- CONFIGURATION ---
+    // =================================================================
+    // ⬇️⬇️⬇️ วาง URL ของ WEB APP ที่คัดลอกมาตรงนี้ ⬇️⬇️⬇️
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzdsNkdjqTZHer-gRdMKbnvkzZKgFxlHWaKNgjmjttzP87Altnq3gib2uwHB0gfxMFHxg/exec";
+    // ⬆️⬆️⬆️ วาง URL ของ WEB APP ที่คัดลอกมาตรงนี้ ⬆️⬆️⬆️
+
+
+    // --- LOCAL DATA STORAGE ---
+    let members = [];
+    let books = [];
+    let rentalLog = [];
+    let renewalLog = [];
+    let incomeLog = [];
+    let rentalCart = [];
+    let pendingRental = {};
+    
+    // --- CHOICES.JS INSTANCES ---
+    let searchMemberChoices, borrowMemberChoices, addToCartChoices;
+
+    // --- UTILITY FUNCTIONS ---
+    const RENTAL_DAYS = 3;
+    const FINE_RATE = 0.5; // 50%
+
+    function getTodayString() {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function formatDate(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    function getDueDate(borrowDateStr) {
+        const borrowDate = new Date(borrowDateStr);
+        borrowDate.setDate(borrowDate.getDate() + RENTAL_DAYS);
+        return borrowDate;
+    }
+    
+    function getBook(bookId) { return books.find(b => b.id === bookId); }
+    function getMember(memberId) { return members.find(m => m.id === memberId); }
+    function isBookAvailable(bookId) { return !rentalLog.find(r => r.bookId === bookId && !r.returnDate); }
+
+    function generateNextId(prefix, currentMaxId) {
+         const maxNum = currentMaxId ? parseInt(String(currentMaxId).replace(prefix, '')) : 0;
+         return `${prefix}${(maxNum + 1).toString().padStart(3, '0')}`;
+    }
+    
+    function filterTable(inputId, tableId, columnsToSearch) {
+        const input = document.getElementById(inputId);
+        const filter = input.value.toUpperCase();
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        const tr = table.getElementsByTagName("tr");
+
+        for (let i = 1; i < tr.length; i++) { // Start from 1 to skip header row
+            let rowText = '';
+            columnsToSearch.forEach(colIndex => {
+                const td = tr[i].getElementsByTagName("td")[colIndex];
+                if (td) {
+                    rowText += td.textContent || td.innerText;
+                }
+            });
+            
+            if (rowText.toUpperCase().indexOf(filter) > -1) {
+                tr[i].style.display = "";
+            } else {
+                tr[i].style.display = "none";
+            }
+        }
+    }
+
+    function filterCurrentlyRentedTable() {
+        const dateInput = document.getElementById('search-rented-date');
+        const textInput = document.getElementById('search-rented-input');
+        const dateFilter = dateInput.value; // YYYY-MM-DD
+        const textFilter = textInput.value.toUpperCase();
+        const table = document.getElementById('currently-rented-table');
+        if (!table) return;
+        const tr = table.getElementsByTagName("tr");
+
+        for (let i = 1; i < tr.length; i++) {
+            const row = tr[i];
+            const memberTd = row.getElementsByTagName("td")[1];
+            const bookTd = row.getElementsByTagName("td")[2];
+            
+            let dateMatch = true;
+            if (dateFilter) {
+                const borrowDate = rentalLog.find(r => r.logId == row.querySelector('input.rental-checkbox')?.value)?.borrowDate;
+                dateMatch = borrowDate === dateFilter;
+            }
+
+            let textMatch = true;
+            if (textFilter) {
+                const rowText = (memberTd?.textContent || '') + (bookTd?.textContent || '');
+                textMatch = rowText.toUpperCase().indexOf(textFilter) > -1;
+            }
+
+            if (dateMatch && textMatch) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        }
+    }
+
+
+    // --- API COMMUNICATION ---
+    const loadingOverlay = document.getElementById('loading-overlay');
+
+    function showLoading(message = 'กำลังโหลดข้อมูล...') {
+        loadingOverlay.querySelector('#loading-spinner p').textContent = message;
+        loadingOverlay.querySelector('#loading-spinner').classList.remove('hidden');
+        loadingOverlay.querySelector('#loading-error').classList.add('hidden');
+        loadingOverlay.style.display = 'flex';
+    }
+
+    function hideLoading() {
+        loadingOverlay.style.display = 'none';
+    }
+
+    function showLoadingError(message) {
+        loadingOverlay.querySelector('#loading-spinner').classList.add('hidden');
+        loadingOverlay.querySelector('#error-message').textContent = message;
+        loadingOverlay.querySelector('#loading-error').classList.remove('hidden');
+        loadingOverlay.style.display = 'flex';
+    }
+
+    async function apiCall(action, data) {
+        showLoading('กำลังบันทึกข้อมูล...');
+        try {
+            const res = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'cors',
+                cache: 'no-cache',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action, data }),
+                redirect: 'follow'
+            });
+            const result = await res.json();
+            if (result.status !== 'success') {
+                throw new Error(result.message || 'เกิดข้อผิดพลาดในการสื่อสารกับเซิร์ฟเวอร์');
+            }
+            return result.data;
+        } catch (error) {
+            console.error('API Call Error:', error);
+            showLoadingError('เกิดข้อผิดพลาด: ' + error.message);
+            return null;
+        }
+    }
+
+    async function loadInitialData() {
+        showLoading('กำลังโหลดข้อมูลเริ่มต้น...');
+        if (SCRIPT_URL === "วาง URL ของ WEB APP ที่คัดลอกมาตรงนี้") {
+            showLoadingError("กรุณาตั้งค่า SCRIPT_URL ในโค้ดก่อนเริ่มใช้งาน");
+            return;
+        }
+        try {
+            const res = await fetch(`${SCRIPT_URL}?t=${new Date().getTime()}`);
+            if (!res.ok) {
+                throw new Error(`Network response was not ok (${res.status})`);
+            }
+            const result = await res.json();
+
+            if (result.status === 'success') {
+                books = result.data.books || [];
+                members = result.data.members || [];
+                rentalLog = result.data.rentalLog || [];
+                renewalLog = result.data.renewalLog || [];
+                incomeLog = result.data.incomeLog || [];
+                renderAll();
+                hideLoading();
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+            console.error('Initial Load Error:', error);
+            showLoadingError('ไม่สามารถโหลดข้อมูลเริ่มต้นได้: ' + error.message + ' (กรุณาตรวจสอบ URL และการตั้งค่า Apps Script)');
+        }
+    }
+
+    // --- MODAL LOGIC ---
+    const confirmationModal = document.getElementById('confirmation-modal');
+    function showConfirmationModal(title, body, onConfirm) {
+        confirmationModal.querySelector('#modal-title').textContent = title;
+        confirmationModal.querySelector('#modal-body').textContent = body;
+        confirmationModal.classList.add('active');
+        const confirmBtn = confirmationModal.querySelector('#modal-confirm-btn');
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        newConfirmBtn.onclick = () => { onConfirm(); hideConfirmationModal(); };
+        confirmationModal.querySelector('#modal-cancel-btn').onclick = hideConfirmationModal;
+    }
+    function hideConfirmationModal() { confirmationModal.classList.remove('active'); }
+
+    const editBookModal = document.getElementById('edit-book-modal');
+    function openEditBookModal(bookId) {
+        const book = getBook(bookId);
+        if (book) {
+            editBookModal.querySelector('#edit-book-id').value = book.id;
+            editBookModal.querySelector('#edit-book-title').value = book.title;
+            editBookModal.querySelector('#edit-book-price').value = book.price;
+            editBookModal.classList.add('active');
+        }
+    }
+    function hideEditBookModal() { editBookModal.classList.remove('active'); }
+
+    const editMemberModal = document.getElementById('edit-member-modal');
+    function openEditMemberModal(memberId) {
+        const member = getMember(memberId);
+        if (member) {
+            editMemberModal.querySelector('#edit-member-id').value = member.id;
+            editMemberModal.querySelector('#edit-member-name').value = member.name;
+            editMemberModal.querySelector('#edit-member-contact').value = member.contact;
+            editMemberModal.classList.add('active');
+        }
+    }
+    function hideEditMemberModal() { editMemberModal.classList.remove('active'); }
+
+    const paymentModal = document.getElementById('payment-modal');
+    function openPaymentModal(total) {
+        document.getElementById('payment-total-amount').textContent = `${total.toFixed(2)} บาท`;
+        document.getElementById('cash-received-input').value = '';
+        document.getElementById('cash-change-display').textContent = '0.00 บาท';
+        switchPaymentMethod('cash'); // Default to cash
+        paymentModal.classList.add('active');
+    }
+    function hidePaymentModal() {
+        paymentModal.classList.remove('active');
+        pendingRental = {}; // Clear pending rental on cancel
+    }
+
+    function switchPaymentMethod(method) {
+        const cashSection = document.getElementById('cash-payment-section');
+        const qrSection = document.getElementById('qr-payment-section');
+        const cashBtn = document.getElementById('payment-method-cash-btn');
+        const qrBtn = document.getElementById('payment-method-qr-btn');
+        const finalConfirmBtn = document.getElementById('final-confirm-btn');
+
+        if (method === 'cash') {
+            cashSection.classList.remove('hidden');
+            qrSection.classList.add('hidden');
+            cashBtn.classList.add('active');
+            qrBtn.classList.remove('active');
+            calculateChange(); // Recalculate to set button state
+        } else { // QR
+            cashSection.classList.add('hidden');
+            qrSection.classList.remove('hidden');
+            cashBtn.classList.remove('active');
+            qrBtn.classList.add('active');
+            finalConfirmBtn.disabled = false; // Always enabled for QR
+        }
+    }
+
+    function calculateChange() {
+        const total = pendingRental.total || 0;
+        const receivedInput = document.getElementById('cash-received-input');
+        const receivedAmount = parseFloat(receivedInput.value) || 0;
+        const change = receivedAmount - total;
+        document.getElementById('cash-change-display').textContent = `${change >= 0 ? change.toFixed(2) : '0.00'} บาท`;
+        
+        const finalConfirmBtn = document.getElementById('final-confirm-btn');
+        finalConfirmBtn.disabled = receivedAmount < total;
+    }
+
+
+    // --- RENDERING FUNCTIONS ---
+    function renderAll() {
+        renderBookList();
+        renderMemberList();
+        renderCurrentlyRented();
+        renderOverdueList();
+        renderIncomeReport();
+        updateAvailableBooksDropdown();
+        updateMembersDropdowns();
+        renderCart();
+        updateNextIds();
+        document.getElementById('history-results').innerHTML = `<p class="text-center text-gray-500">กรุณาเลือกสมาชิกและกดค้นหาเพื่อดูประวัติ</p>`;
+        document.getElementById('history-actions').style.display = 'none';
+    }
+
+    function updateNextIds() {
+        const maxBookId = books.reduce((max, b) => (b.id > max ? b.id : max), 'B000');
+        document.getElementById('book-id-display').value = generateNextId('B', maxBookId);
+        
+        document.getElementById('add-member-form').querySelector('#member-name').value = '';
+        document.getElementById('add-member-form').querySelector('#member-contact').value = '';
+        document.getElementById('add-member-form').querySelector('#member-reg-date').value = getTodayString();
+    }
+    
+    function renderBookList() {
+        const tableContainer = document.getElementById('book-list-table');
+        let html = `<table id="book-list-main-table" class="w-full text-left border-collapse"><thead><tr class="bg-gray-200"><th class="p-3 font-bold uppercase text-gray-600 border">รหัส</th><th class="p-3 font-bold uppercase text-gray-600 border">ชื่อหนังสือ</th><th class="p-3 font-bold uppercase text-gray-600 border text-right">ราคายืม (บาท)</th><th class="p-3 font-bold uppercase text-gray-600 border text-center">สถานะ</th><th class="p-3 font-bold uppercase text-gray-600 border text-center">จัดการ</th></tr></thead><tbody>`;
+        if (books.length === 0) {
+            html += `<tr><td colspan="5" class="p-4 text-center text-gray-500">ยังไม่มีหนังสือในระบบ</td></tr>`;
+        } else {
+            books.forEach(book => {
+                const available = isBookAvailable(book.id);
+                html += `<tr class="hover:bg-gray-50"><td class="p-3 border">${book.id}</td><td class="p-3 border">${book.title}</td><td class="p-3 border text-right">${book.price.toFixed(2)}</td><td class="p-3 border text-center"><span class="px-3 py-1 rounded-full font-semibold text-sm ${available ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">${available ? 'ว่าง' : 'ถูกยืม'}</span></td><td class="p-3 border text-center"><button onclick="openEditBookModal('${book.id}')" class="bg-yellow-500 text-white text-sm font-bold py-2 px-4 rounded-lg hover:bg-yellow-600 transition"><i class="fas fa-edit mr-1"></i> แก้ไข</button></td></tr>`;
+            });
+        }
+        tableContainer.innerHTML = html + `</tbody></table>`;
+    }
+
+    function renderMemberList() {
+        const tableContainer = document.getElementById('member-list-table');
+        let html = `<table id="member-list-main-table" class="w-full text-left border-collapse"><thead><tr class="bg-gray-200"><th class="p-3 font-bold uppercase text-gray-600 border">รหัส</th><th class="p-3 font-bold uppercase text-gray-600 border">ชื่อ-สกุล</th><th class="p-3 font-bold uppercase text-gray-600 border">ข้อมูลติดต่อ</th><th class="p-3 font-bold uppercase text-gray-600 border">วันที่สมัคร</th><th class="p-3 font-bold uppercase text-gray-600 border">วันที่หมดอายุ</th><th class="p-3 font-bold uppercase text-gray-600 border text-center">จัดการ</th></tr></thead><tbody>`;
+        if (members.length === 0) {
+            html += `<tr><td colspan="6" class="p-4 text-center text-gray-500">ยังไม่มีสมาชิกในระบบ</td></tr>`;
+        } else {
+            members.forEach(m => {
+                const isExpired = new Date(m.expiryDate) < new Date();
+                const expiryClass = isExpired ? 'text-red-600 font-bold' : '';
+                html += `<tr class="hover:bg-gray-50">
+                    <td class="p-3 border">${m.id}</td>
+                    <td class="p-3 border ${isExpired ? 'text-red-500' : ''}">${m.name}</td>
+                    <td class="p-3 border">${m.contact}</td>
+                    <td class="p-3 border">${formatDate(m.registrationDate)}</td>
+                    <td class="p-3 border ${expiryClass}">${formatDate(m.expiryDate)}</td>
+                    <td class="p-3 border text-center space-x-2">
+                        <button onclick="openEditMemberModal('${m.id}')" class="bg-yellow-500 text-white text-sm font-bold py-2 px-3 rounded-lg hover:bg-yellow-600 transition"><i class="fas fa-edit"></i></button>
+                        <button onclick="renewMembership('${m.id}')" class="bg-green-500 text-white text-sm font-bold py-2 px-3 rounded-lg hover:bg-green-600 transition"><i class="fas fa-sync-alt"></i></button>
+                    </td>
+                </tr>`;
+            });
+        }
+        tableContainer.innerHTML = html + `</tbody></table>`;
+    }
+
+    function renderCurrentlyRented() {
+        const container = document.getElementById('currently-rented-list');
+        const currentlyRented = [...rentalLog]
+            .sort((a, b) => new Date(b.borrowDate) - new Date(a.borrowDate))
+            .filter(r => !r.returnDate);
+            
+        if (currentlyRented.length === 0) {
+            container.innerHTML = `<table id="currently-rented-table" class="w-full"><tbody><tr><td class="p-4 text-center text-gray-500">ไม่มีหนังสือที่ถูกยืมอยู่ในขณะนี้</td></tr></tbody></table>`;
+        } else {
+            let html = `<table id="currently-rented-table" class="w-full text-left border-collapse"><thead><tr class="bg-gray-200"><th class="p-3 font-bold uppercase text-gray-600 border text-center w-12"><input type="checkbox" onchange="toggleAllCheckboxes(this, 'currently-rented-table')"></th><th class="p-3 font-bold uppercase text-gray-600 border">ชื่อผู้ยืม</th><th class="p-3 font-bold uppercase text-gray-600 border">ชื่อหนังสือ</th><th class="p-3 font-bold uppercase text-gray-600 border">วันที่ยืม</th><th class="p-3 font-bold uppercase text-gray-600 border">กำหนดคืน</th><th class="p-3 font-bold uppercase text-gray-600 border text-center">จัดการ</th></tr></thead><tbody>`;
+            currentlyRented.forEach(rental => {
+                const dueDate = getDueDate(rental.borrowDate);
+                html += `<tr class="hover:bg-gray-50">
+                    <td class="p-3 border text-center"><input type="checkbox" class="rental-checkbox" value="${rental.logId}" onchange="updateReturnSelectedButtonVisibility('currently-rented-table', 'currently-rented-actions')"></td>
+                    <td class="p-3 border">${getMember(rental.memberId)?.name || 'N/A'}</td>
+                    <td class="p-3 border">${getBook(rental.bookId)?.title || 'N/A'}</td>
+                    <td class="p-3 border">${formatDate(rental.borrowDate)}</td>
+                    <td class="p-3 border ${new Date() > dueDate ? 'text-red-600 font-bold' : ''}">${formatDate(dueDate)}</td>
+                    <td class="p-3 border text-center"><button onclick="returnBook(${rental.logId})" class="bg-blue-500 text-white text-sm font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition"><i class="fas fa-undo-alt mr-1"></i> คืน</button></td>
+                </tr>`;
+            });
+            container.innerHTML = html + `</tbody></table>`;
+        }
+        document.getElementById('search-rented-date').value = getTodayString();
+        filterCurrentlyRentedTable();
+    }
+    
+    function renderOverdueList() {
+        const container = document.getElementById('overdue-list');
+        const overdueBooks = rentalLog.filter(r => !r.returnDate && new Date() > getDueDate(r.borrowDate));
+        if (overdueBooks.length === 0) {
+            container.innerHTML = `<p class="text-center text-green-600 font-semibold"><i class="fas fa-check-circle mr-2"></i>เยี่ยม! ไม่มีหนังสือค้างส่ง</p>`;
+            return;
+        }
+        let html = `<table class="w-full text-left border-collapse"><thead><tr class="bg-red-100"><th class="p-3 font-bold uppercase text-red-700 border">ผู้ยืม</th><th class="p-3 font-bold uppercase text-red-700 border">หนังสือ</th><th class="p-3 font-bold uppercase text-red-700 border">กำหนดคืน</th><th class="p-3 font-bold uppercase text-red-700 border text-center">ค่าปรับ (บาท)</th></tr></thead><tbody>`;
+        overdueBooks.forEach(rental => {
+            const dueDate = getDueDate(rental.borrowDate);
+            const daysOverdue = Math.floor((new Date() - dueDate) / (1000 * 60 * 60 * 24)) + 1;
+            const fine = daysOverdue * (rental.rentalPrice * FINE_RATE);
+            html += `<tr class="hover:bg-red-50"><td class="p-3 border">${getMember(rental.memberId)?.name}</td><td class="p-3 border">${getBook(rental.bookId)?.title}</td><td class="p-3 border font-semibold">${formatDate(dueDate)}</td><td class="p-3 border text-center font-bold text-lg">${fine.toFixed(2)}</td></tr>`;
+        });
+        container.innerHTML = html + `</tbody></table>`;
+    }
+
+    function renderIncomeReport() {
+        const container = document.getElementById('income-report-table');
+        let html = `<table class="w-full text-left border-collapse"><thead><tr class="bg-gray-200"><th class="p-3 font-bold uppercase text-gray-600 border">วันที่</th><th class="p-3 font-bold uppercase text-gray-600 border text-right">จำนวนเงิน (บาท)</th><th class="p-3 font-bold uppercase text-gray-600 border">ช่องทาง</th><th class="p-3 font-bold uppercase text-gray-600 border">ลูกค้า</th></tr></thead><tbody>`;
+        if (incomeLog.length === 0) {
+            html += `<tr><td colspan="4" class="p-4 text-center text-gray-500">ยังไม่มีข้อมูลรายรับ</td></tr>`;
+        } else {
+            const sortedLog = [...incomeLog].sort((a,b) => new Date(b.date) - new Date(a.date));
+            sortedLog.forEach(log => {
+                html += `<tr class="hover:bg-gray-50">
+                    <td class="p-3 border">${formatDate(log.date)}</td>
+                    <td class="p-3 border text-right">${log.amount.toFixed(2)}</td>
+                    <td class="p-3 border">${log.paymentMethod}</td>
+                    <td class="p-3 border">${getMember(log.memberId)?.name || 'N/A'}</td>
+                </tr>`;
+            });
+        }
+        container.innerHTML = html + `</tbody></table>`;
+    }
+
+    function updateAvailableBooksDropdown() {
+        const availableBooks = books.filter(b => isBookAvailable(b.id) && !rentalCart.find(cartItem => cartItem.id === b.id));
+        const choices = availableBooks.map(book => ({
+            value: book.id,
+            label: `${book.title} (${book.id})`
+        }));
+        choices.unshift({ value: '', label: 'พิมพ์เพื่อค้นหา...', placeholder: true, selected: true, disabled: true });
+        if (addToCartChoices) {
+            addToCartChoices.clearStore();
+            addToCartChoices.setChoices(choices, 'value', 'label', false);
+        }
+    }
+    
+    function updateMembersDropdowns() {
+        const today = new Date();
+        const activeMembers = members.filter(m => new Date(m.expiryDate) >= today);
+        const activeChoices = activeMembers.map(m => ({ value: m.id, label: `${m.name} (${m.id})` }));
+        activeChoices.unshift({ value: '', label: 'พิมพ์เพื่อค้นหา...', placeholder: true, selected: true, disabled: true });
+        if(borrowMemberChoices) {
+            borrowMemberChoices.clearStore();
+            borrowMemberChoices.setChoices(activeChoices, 'value', 'label', false);
+        }
+
+        const allChoices = members.map(m => ({ value: m.id, label: `${m.name} (${m.id})` }));
+        allChoices.unshift({ value: '', label: 'พิมพ์เพื่อค้นหา...', placeholder: true, selected: true, disabled: true });
+        if(searchMemberChoices) {
+            searchMemberChoices.clearStore();
+            searchMemberChoices.setChoices(allChoices, 'value', 'label', false);
+        }
+    }
+
+    function searchHistory() {
+        const memberId = searchMemberChoices.getValue(true);
+        const container = document.getElementById('history-results');
+        if (!memberId) {
+            container.innerHTML = `<p class="text-center text-red-500">กรุณาเลือกสมาชิกที่ต้องการค้นหา</p>`;
+            return;
+        }
+        const history = rentalLog.filter(r => r.memberId === memberId);
+        if (history.length === 0) {
+            container.innerHTML = `<p class="text-center text-gray-500">ไม่พบประวัติการยืมของสมาชิกท่านนี้</p>`;
+            return;
+        }
+        let html = `<h3 class="text-xl font-bold mb-3">ประวัติของ: ${getMember(memberId).name}</h3><table id="history-results-table" class="w-full text-left border-collapse"><thead><tr class="bg-gray-200"><th class="p-3 font-bold uppercase text-gray-600 border text-center w-12"><input type="checkbox" onchange="toggleAllCheckboxes(this, 'history-results-table')"></th><th class="p-3 font-bold uppercase text-gray-600 border">หนังสือ</th><th class="p-3 font-bold uppercase text-gray-600 border">วันที่ยืม</th><th class="p-3 font-bold uppercase text-gray-600 border">วันที่คืน</th><th class="p-3 font-bold uppercase text-gray-600 border text-center">สถานะ/จัดการ</th></tr></thead><tbody>`;
+        history.sort((a, b) => new Date(b.borrowDate) - new Date(a.borrowDate)).forEach(rental => {
+            let checkboxCell = `<td class="p-3 border text-center"><input type="checkbox" class="rental-checkbox" value="${rental.logId}" onchange="updateReturnSelectedButtonVisibility('history-results-table', 'history-actions')"></td>`;
+            let statusCell;
+            if (rental.returnDate) {
+                statusCell = `<span class="px-3 py-1 rounded-full font-semibold text-sm bg-gray-200 text-gray-800">คืนแล้ว</span>`;
+                checkboxCell = `<td class="p-3 border"></td>`; // No checkbox for returned items
+            } else {
+                statusCell = `<button onclick="returnBook(${rental.logId})" class="bg-blue-500 text-white text-sm font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition"><i class="fas fa-undo-alt mr-1"></i> คืน</button>`;
+            }
+            html += `<tr class="hover:bg-gray-50">${checkboxCell}<td class="p-3 border">${getBook(rental.bookId)?.title}</td><td class="p-3 border">${formatDate(rental.borrowDate)}</td><td class="p-3 border">${formatDate(rental.returnDate)}</td><td class="p-3 border text-center">${statusCell}</td></tr>`;
+        });
+        container.innerHTML = html + `</tbody></table>`;
+    }
+
+    // --- CART LOGIC ---
+    function addToCart() {
+        const bookId = addToCartChoices.getValue(true);
+        if (!bookId) return;
+        const book = getBook(bookId);
+        if (book) {
+            rentalCart.push(book);
+            renderCart();
+            updateAvailableBooksDropdown();
+            addToCartChoices.clearInput();
+            addToCartChoices.setChoiceByValue('');
+        }
+    }
+    function removeFromCart(bookId) {
+        rentalCart = rentalCart.filter(b => b.id !== bookId);
+        renderCart();
+        updateAvailableBooksDropdown();
+    }
+    function renderCart() {
+        const container = document.getElementById('rental-cart-container');
+        const confirmBtn = document.getElementById('confirm-rental-btn');
+        if (rentalCart.length === 0) {
+            container.innerHTML = `<p class="text-center text-gray-500">ตะกร้าว่าง</p>`;
+            confirmBtn.disabled = true;
+            return;
+        }
+        let total = 0;
+        let html = `<table class="w-full text-left">`;
+        rentalCart.forEach(book => {
+            total += book.price;
+            html += `<tr><td class="py-1">${book.title}</td><td class="py-1 text-right">${book.price.toFixed(2)} บ.</td><td class="py-1 text-right"><button onclick="removeFromCart('${book.id}')" class="text-red-500 hover:text-red-700 text-xs"><i class="fas fa-times-circle"></i></button></td></tr>`;
+        });
+        html += `<tr class="border-t-2 font-bold"><td class="pt-2">ราคารวม</td><td class="pt-2 text-right text-lg">${total.toFixed(2)} บ.</td><td></td></tr></table>`;
+        container.innerHTML = html;
+        confirmBtn.disabled = false;
+    }
+    
+    // --- EVENT HANDLERS & ACTIONS (Connect to API) ---
+    document.getElementById('add-book-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const id = document.getElementById('book-id-display').value;
+        const title = document.getElementById('book-title').value.trim();
+        const price = parseFloat(document.getElementById('book-price').value);
+        
+        const newBook = await apiCall('addBook', { id, title, price });
+        if (newBook) {
+            books.push(newBook);
+            this.reset();
+            renderAll();
+            hideLoading();
+        }
+    });
+
+    document.getElementById('add-member-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const maxMemberId = members.reduce((max, m) => (m.id > max ? m.id : max), 'M000');
+        const id = generateNextId('M', maxMemberId);
+        const name = document.getElementById('member-name').value.trim();
+        const contact = document.getElementById('member-contact').value.trim();
+        const registrationDate = document.getElementById('member-reg-date').value;
+
+        const expiryDate = new Date(registrationDate);
+        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        
+        const newMemberData = { id, name, contact, registrationDate, expiryDate: expiryDate.toISOString().slice(0,10) };
+        const newMember = await apiCall('addMember', newMemberData);
+        if (newMember) {
+            members.push(newMemberData);
+            this.reset();
+            renderAll();
+            hideLoading();
+        }
+    });
+
+    document.getElementById('edit-book-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const bookId = document.getElementById('edit-book-id').value;
+        const newTitle = document.getElementById('edit-book-title').value.trim();
+        const newPrice = parseFloat(document.getElementById('edit-book-price').value);
+        
+        const updatedBookData = { id: bookId, title: newTitle, price: newPrice };
+        const result = await apiCall('updateBook', updatedBookData);
+        if (result) {
+            const bookIndex = books.findIndex(b => b.id === bookId);
+            if(bookIndex > -1) books[bookIndex] = updatedBookData;
+            hideEditBookModal();
+            renderAll();
+            hideLoading();
+        }
+    });
+
+    document.getElementById('edit-member-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const memberId = document.getElementById('edit-member-id').value;
+        const newName = document.getElementById('edit-member-name').value.trim();
+        const newContact = document.getElementById('edit-member-contact').value.trim();
+        
+        const updatedMemberData = { id: memberId, name: newName, contact: newContact };
+        const result = await apiCall('updateMember', updatedMemberData);
+        if (result) {
+            const memberIndex = members.findIndex(m => m.id === memberId);
+            if(memberIndex > -1) {
+                members[memberIndex].name = newName;
+                members[memberIndex].contact = newContact;
+            }
+            hideEditMemberModal();
+            renderAll();
+            hideLoading();
+        }
+    });
+
+    async function returnBook(logId) {
+        const rental = rentalLog.find(r => r.logId == logId);
+        if (rental) {
+            showConfirmationModal('ยืนยันการคืนหนังสือ', `ยืนยันการคืนหนังสือ "${getBook(rental.bookId).title}" ใช่หรือไม่?`, async () => {
+                const returnDate = new Date().toISOString().slice(0, 10);
+                const result = await apiCall('returnBook', { logId, returnDate });
+                if (result) {
+                    const rentalIndex = rentalLog.findIndex(r => r.logId == logId);
+                    if(rentalIndex > -1) rentalLog[rentalIndex].returnDate = returnDate;
+                    renderAll();
+                    const searchSelectValue = searchMemberChoices.getValue(true);
+                    if (searchSelectValue === rental.memberId) {
+                        searchHistory();
+                    }
+                    hideLoading();
+                }
+            });
+        }
+    }
+
+    async function renewMembership(memberId) {
+        const member = getMember(memberId);
+        if (member) {
+            showConfirmationModal('ยืนยันการต่ออายุ', `คุณต้องการต่ออายุสมาชิกให้คุณ "${member.name}" ออกไปอีก 1 ปีใช่หรือไม่?`, async () => {
+                const currentExpiry = new Date(member.expiryDate);
+                currentExpiry.setFullYear(currentExpiry.getFullYear() + 1);
+                const newExpiryDate = currentExpiry.toISOString().slice(0,10);
+                const renewalDate = getTodayString();
+
+                const renewalData = { memberId, renewalDate, newExpiryDate };
+                const result = await apiCall('renewMembership', renewalData);
+                if (result) {
+                    const memberIndex = members.findIndex(m => m.id === memberId);
+                    if(memberIndex > -1) members[memberIndex].expiryDate = newExpiryDate;
+                    renewalLog.push(result);
+                    renderAll();
+                    hideLoading();
+                }
+            });
+        }
+    }
+
+    function confirmRental() {
+        const memberId = borrowMemberChoices.getValue(true);
+        if (!memberId) {
+            alert('กรุณาเลือกสมาชิกผู้ยืมก่อน');
+            return;
+        }
+        if (rentalCart.length === 0) {
+            alert('กรุณาเพิ่มหนังสือลงในตะกร้าก่อน');
+            return;
+        }
+        const total = rentalCart.reduce((sum, book) => sum + book.price, 0);
+        pendingRental = {
+            memberId: memberId,
+            cart: [...rentalCart],
+            total: total
+        };
+        openPaymentModal(total);
+    }
+
+    async function handleFinalConfirmation() {
+        if (!pendingRental.cart || pendingRental.cart.length === 0) {
+            alert('เกิดข้อผิดพลาด: ไม่มีรายการในตะกร้า');
+            return;
+        }
+
+        const maxLogId = rentalLog.reduce((max, r) => (r.logId > max ? r.logId : max), 0);
+        const rentalsToLog = pendingRental.cart.map((book, index) => ({
+            logId: maxLogId + 1 + index,
+            memberId: pendingRental.memberId,
+            bookId: book.id,
+            borrowDate: getTodayString(),
+            returnDate: null,
+            rentalPrice: book.price
+        }));
+
+        const paymentMethod = document.getElementById('payment-method-cash-btn').classList.contains('active') ? 'เงินสด' : 'QR Code';
+        const incomeToLog = {
+            date: getTodayString(),
+            amount: pendingRental.total,
+            paymentMethod: paymentMethod,
+            memberId: pendingRental.memberId
+        };
+        
+        // Use a new action name to signify the combined operation
+        const result = await apiCall('processRentalAndIncome', { rentalsToLog, incomeToLog });
+
+        if (result) {
+            rentalLog.push(...result.newRentals);
+            incomeLog.push(result.newIncome);
+            
+            // Reset state
+            rentalCart = [];
+            pendingRental = {};
+            borrowMemberChoices.clearInput();
+            borrowMemberChoices.setChoiceByValue('');
+            
+            hidePaymentModal();
+            renderAll();
+            hideLoading();
+        }
+    }
+
+    // --- MULTI-RETURN LOGIC ---
+    function toggleAllCheckboxes(source, tableId) {
+        const table = document.getElementById(tableId);
+        const checkboxes = table.querySelectorAll('tbody input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = source.checked;
+        });
+        const actionsId = tableId === 'currently-rented-table' ? 'currently-rented-actions' : 'history-actions';
+        updateReturnSelectedButtonVisibility(tableId, actionsId);
+    }
+
+    function updateReturnSelectedButtonVisibility(tableId, actionsId) {
+        const table = document.getElementById(tableId);
+        const actionsContainer = document.getElementById(actionsId);
+        const checked = table.querySelectorAll('tbody input[type="checkbox"]:checked');
+        actionsContainer.style.display = checked.length > 0 ? 'block' : 'none';
+    }
+
+    async function handleReturnSelected(tableId) {
+        const table = document.getElementById(tableId);
+        const checkedBoxes = table.querySelectorAll('tbody input[type="checkbox"]:checked');
+        const logIdsToReturn = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+
+        if (logIdsToReturn.length === 0) {
+            alert('กรุณาเลือกรายการที่ต้องการคืนก่อน');
+            return;
+        }
+
+        showConfirmationModal('ยืนยันการคืน', `คุณต้องการคืนหนังสือ ${logIdsToReturn.length} เล่มที่เลือกใช่หรือไม่?`, async () => {
+            const returnDate = getTodayString();
+            const result = await apiCall('returnMultipleBooks', { logIds: logIdsToReturn, returnDate });
+            if (result) {
+                result.logIds.forEach(logId => {
+                    const rentalIndex = rentalLog.findIndex(r => r.logId == logId);
+                    if (rentalIndex > -1) rentalLog[rentalIndex].returnDate = returnDate;
+                });
+                renderAll();
+                const searchSelectValue = searchMemberChoices.getValue(true);
+                if (searchSelectValue) searchHistory();
+                hideLoading();
+            }
+        });
+    }
+
+    // --- TAB HANDLING ---
+    function changeTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabName + '-content').classList.add('active');
+        document.querySelector(`.tab-button[data-tab='${tabName}']`).classList.add('active');
+    }
+
+    // --- INITIALIZATION ---
+    window.onload = function() {
+        const choiceConfig = {
+            searchEnabled: true,
+            itemSelectText: 'กดเพื่อเลือก',
+            noResultsText: 'ไม่พบข้อมูล',
+            noChoicesText: 'ไม่มีตัวเลือกเหลือ',
+        };
+        
+        searchMemberChoices = new Choices('#search-member-select', choiceConfig);
+        borrowMemberChoices = new Choices('#borrow-member-select', choiceConfig);
+        addToCartChoices = new Choices('#add-to-cart-select', choiceConfig);
+        
+        loadInitialData();
+    };
+</script>
+
+</body>
+</html>
